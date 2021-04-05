@@ -1,4 +1,5 @@
 #!/bin/bash
+# Script to change email and username of existing commit in a repo
 
 git filter-branch --commit-filter '
       if [ "$GIT_AUTHOR_EMAIL" = "email_to_remove" ];
