@@ -1,0 +1,3 @@
+clevis luks unlock -d /dev/sda3
+
+https://kowalski7cc.xyz/blog/luks2-tpm2-clevis-fedora31
