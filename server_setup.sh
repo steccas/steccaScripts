@@ -7,11 +7,11 @@ if [ -z "$1" ] || [ -z "$2" ]
 fi
 
 #upgrade os
-apt update && apt dist-upgrade
+apt update && apt dist-upgrade -y
 
 #basic packages
 #apt autoremove --purge snapd
-apt install fonts-powerline \
+apt install -y fonts-powerline \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -57,7 +57,7 @@ echo \
   "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt update
-apt install docker-ce docker-ce-cli containerd.io
+apt install -y docker-ce docker-ce-cli containerd.io
 curl -L "https://github.com/docker/compose/releases/download/1.29.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 usermod -aG docker $1
