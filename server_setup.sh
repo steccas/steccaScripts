@@ -68,6 +68,6 @@ fish -c "curl -L https://get.oh-my.fish | fish"
 fish -c "omf install bobthefish" 
 sudo -u $1 fish -c "curl -L https://get.oh-my.fish | fish"
 sudo -u $1 fish -c "omf install bobthefish"
-sudo chown -R $1:$1 /home/stecca/.config/
+sudo chown -R $1:$1 /home/$1/.config/
 
 exit 0
