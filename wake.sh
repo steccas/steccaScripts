@@ -14,7 +14,7 @@ fi
 
 export PATH=$PATH:/usr/sbin
 
-if ! etherwake -v etherwake &> /dev/null
+if ! etherwake -V 00:11:22:33:44:55 &> /dev/null
 then
     echo "etherwake could not be found"
     exit
