@@ -12,17 +12,17 @@ then
     exit
 fi
 
-if ! etherwake -v etherwake &> /dev/null
-then
-    echo "etherwake could not be found"
-    exit
-fi
+#if ! etherwake -v etherwake &> /dev/null
+#then
+#    echo "etherwake could not be found"
+#    exit
+#fi
 
 status=0
 while [ $status -eq 0 ];
 do
     ping -c 1 $2 >/dev/null && status=1
-    etherwake -i $3 $1
+    #etherwake -i $3 $1
     wakeonlan $1
     sleep 4
 done
