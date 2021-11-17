@@ -14,6 +14,7 @@ fi
 
 export PATH=$PATH:/usr/sbin
 etherwake="$(which etherwake)"
+which etherwake
 
 if ! etherwake -v etherwake &> /dev/null
 then
