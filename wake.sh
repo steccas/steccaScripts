@@ -19,7 +19,7 @@ fi
 #fi
 
 status=0
-while [ $status -eq 0 ];q
+while [ $status -eq 0 ];
 do
     ping -c 1 $2 >/dev/null && status=1
     #etherwake -i $3 $1
