@@ -12,11 +12,11 @@ then
     exit
 fi
 
-#if ! etherwake -v etherwake &> /dev/null
-#then
-#    echo "etherwake could not be found"
-#    exit
-#fi
+if ! etherwake -v etherwake &> /dev/null
+then
+    echo "etherwake could not be found"
+    exit
+fi
 
 status=0
 while [ $status -eq 0 ];
