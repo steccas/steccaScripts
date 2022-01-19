@@ -32,6 +32,7 @@ apt install -y fonts-powerline \
 #livepatch
 snap install canonical-livepatch
 ua attach $2
+ua enable livepatch
 
 #unattended-upgrades
 nano /etc/apt/apt.conf.d/50unattended-upgrades
