@@ -32,6 +32,7 @@ apt install -y fonts-powerline \
 #livepatch
 snap install canonical-livepatch
 ua attach $2
+ua enable livepatch
 
 #unattended-upgrades
 nano /etc/apt/apt.conf.d/50unattended-upgrades
@@ -64,9 +65,9 @@ usermod -aG docker $1
 
 #fish
 sudo -u $1 chsh -s `which fish`
-fish -c "curl -L https://get.oh-my.fish | fish"
+fish -c "curl -L https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish"
 fish -c "omf install bobthefish" 
-sudo -u $1 fish -c "curl -L https://get.oh-my.fish | fish"
+sudo -u $1 fish -c "curl -L https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish"
 sudo -u $1 fish -c "omf install bobthefish"
 sudo chown -R $1:$1 /home/$1/.config/
 
