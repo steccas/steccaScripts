@@ -52,6 +52,9 @@ echo "vm.swappiness=10" >> /etc/sysctl.conf
 ufw allow openssh
 ufw enable
 
+# Add specified user
+adduser $1
+
 #docker
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 echo \
