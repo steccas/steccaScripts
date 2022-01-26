@@ -67,6 +67,7 @@ chmod +x /usr/local/bin/docker-compose
 usermod -aG docker $1
 
 #fish
+chsh -s `which fish`
 sudo -u $1 chsh -s `which fish`
 fish -c "curl -L https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish"
 fish -c "omf install bobthefish" 
