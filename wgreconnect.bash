@@ -12,6 +12,6 @@ do
     ping -c 1 $1
     if [ $? != 0 ]
     then
-      sudo systemctl restart wg-quick@$2
+      systemctl restart wg-quick@$2
     fi
 done
