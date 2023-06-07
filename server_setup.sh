@@ -24,7 +24,6 @@ apt install -y fonts-powerline \
     iperf \
     git \
     build-essential	\
-    curl \
     gnupg \
     lsb-release \
     unattended-upgrades
