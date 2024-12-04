@@ -2,7 +2,15 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-e|--export] [-i|--import] [-p|--path <backup_directory>]"
+    echo "Usage: $0 [-e|--export] [-i|--import] [-p|--path <backup_directory>] [--no-packages] [--no-services]"
+    echo "Options:"
+    echo "  -e, --export       Export mode"
+    echo "  -i, --import       Import mode"
+    echo "  -p, --path PATH    Backup directory path"
+    echo "  --no-packages      Skip package installation during import"
+    echo "  --no-services      Skip systemd service activation during import"
+    echo
+    echo "Example: $0 --import --path /path/to/backup --no-packages"
     exit 1
 }
 
@@ -13,6 +21,8 @@ fi
 
 MODE=""
 BACKUP_DIR=""
+SKIP_PACKAGES=false
+SKIP_SERVICES=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -28,6 +38,14 @@ while [[ $# -gt 0 ]]; do
             BACKUP_DIR="$2"
             shift 2
             ;;
+        --no-packages)
+            SKIP_PACKAGES=true
+            shift
+            ;;
+        --no-services)
+            SKIP_SERVICES=true
+            shift
+            ;;
         *)
             usage
             ;;
@@ -37,6 +55,38 @@ done
 if [ -z "$MODE" ] || [ -z "$BACKUP_DIR" ]; then
     usage
 fi
+
+# Function to backup application data
+backup_app_data() {
+    local app_name="$1"
+    local source_path="$2"
+    local backup_path="$BACKUP_DIR/$app_name"
+    
+    if [ -e "$source_path" ]; then
+        echo "Backing up $app_name..."
+        mkdir -p "$backup_path"
+        cp -r "$source_path/." "$backup_path/"
+        echo "$app_name backup completed"
+    else
+        echo "Warning: $app_name directory not found at $source_path"
+    fi
+}
+
+# Function to restore application data
+restore_app_data() {
+    local app_name="$1"
+    local target_path="$2"
+    local backup_path="$BACKUP_DIR/$app_name"
+    
+    if [ -d "$backup_path" ]; then
+        echo "Restoring $app_name..."
+        mkdir -p "$target_path"
+        cp -r "$backup_path/." "$target_path/"
+        echo "$app_name restore completed"
+    else
+        echo "Warning: No backup found for $app_name"
+    fi
+}
 
 # Create backup directory if exporting
 if [ "$MODE" == "export" ]; then
@@ -48,6 +98,23 @@ if [ "$MODE" == "export" ]; then
     if [ -d "$HOME/.ssh" ]; then
         cp -r "$HOME/.ssh" "$BACKUP_DIR/"
     fi
+
+    # Backup Windsurf data
+    backup_app_data "windsurf" "$HOME/.config/windsurf"
+
+    # Backup Brave data
+    backup_app_data "brave" "$HOME/.config/BraveSoftware/Brave-Browser"
+
+    # Backup Ledger Live data
+    backup_app_data "ledger_live" "$HOME/.config/Ledger Live"
+
+    # Export package list
+    pacman -Qqe > "$BACKUP_DIR/pacman_packages.txt"
+    pacman -Qqem > "$BACKUP_DIR/aur_packages.txt"
+
+    # Export systemd services
+    systemctl list-unit-files --state=enabled --user > "$BACKUP_DIR/systemd_user_services.txt"
+    sudo systemctl list-unit-files --state=enabled > "$BACKUP_DIR/systemd_system_services.txt"
 
     # Export GPG keys
     gpg --export-secret-keys -o "$BACKUP_DIR/gpg-backup.asc"
@@ -98,15 +165,35 @@ if [ "$MODE" == "export" ]; then
         code --list-extensions > "$BACKUP_DIR/vscode/vscode_extensions_list.txt"
     fi
 
+    # Export Windsurf settings and extensions
+    if [ -d "$HOME/.config/windsurf" ]; then
+        mkdir -p "$BACKUP_DIR/windsurf"
+        rsync -a --exclude 'Cache' --exclude 'CachedData' --exclude 'GPUCache' "$HOME/.config/windsurf/" "$BACKUP_DIR/windsurf/"
+        windsurf --list-extensions > "$BACKUP_DIR/windsurf/extensions_list.txt"
+    fi
+
     # Export browser profiles
     if [ -d "$HOME/.mozilla/firefox" ]; then
-        cp -r "$HOME/.mozilla/firefox" "$BACKUP_DIR/"
+        mkdir -p "$BACKUP_DIR/.mozilla/firefox"
+        rsync -a --exclude 'cache2' --exclude 'startupCache' "$HOME/.mozilla/firefox/" "$BACKUP_DIR/.mozilla/firefox/"
     fi
     if [ -d "$HOME/.config/google-chrome" ]; then
-        cp -r "$HOME/.config/google-chrome" "$BACKUP_DIR/"
+        mkdir -p "$BACKUP_DIR/google-chrome"
+        rsync -a --exclude 'Cache' --exclude 'GPUCache' "$HOME/.config/google-chrome/" "$BACKUP_DIR/google-chrome/"
     fi
     if [ -d "$HOME/.config/chromium" ]; then
-        cp -r "$HOME/.config/chromium" "$BACKUP_DIR/"
+        mkdir -p "$BACKUP_DIR/chromium"
+        rsync -a --exclude 'Cache' --exclude 'GPUCache' "$HOME/.config/chromium/" "$BACKUP_DIR/chromium/"
+    fi
+    if [ -d "$HOME/.config/BraveSoftware/Brave-Browser" ]; then
+        mkdir -p "$BACKUP_DIR/brave"
+        rsync -a --exclude 'Cache' --exclude 'GPUCache' --exclude 'Code Cache' "$HOME/.config/BraveSoftware/Brave-Browser/" "$BACKUP_DIR/brave/"
+    fi
+
+    # Export Ledger Live settings
+    if [ -d "$HOME/.config/Ledger Live" ]; then
+        mkdir -p "$BACKUP_DIR/ledger-live"
+        rsync -a --exclude 'Cache' --exclude 'GPUCache' "$HOME/.config/Ledger Live/" "$BACKUP_DIR/ledger-live/"
     fi
 
     # Export dotfiles for tools (e.g., .tool-versions)
@@ -118,10 +205,6 @@ if [ "$MODE" == "export" ]; then
     if [ -d "$HOME/.config" ]; then
         cp -r "$HOME/.config" "$BACKUP_DIR/"
     fi
-
-    # Export package list (Pacman and AUR)
-    pacman -Qqen > "$BACKUP_DIR/pkglist.txt"
-    pacman -Qqem > "$BACKUP_DIR/aur_pkglist.txt"
 
     # Export Docker configurations (if applicable)
     if [ -d "$HOME/.docker" ]; then
@@ -138,7 +221,6 @@ if [ "$MODE" == "export" ]; then
         cp -r "$HOME/.config/OpenRGB" "$BACKUP_DIR/"
     fi
 
-    # Completion message
     echo "Backup completed successfully at $BACKUP_DIR"
 
 elif [ "$MODE" == "import" ]; then
@@ -146,8 +228,17 @@ elif [ "$MODE" == "import" ]; then
     if [ -d "$BACKUP_DIR/.ssh" ]; then
         cp -r "$BACKUP_DIR/.ssh" "$HOME/"
         chmod 700 "$HOME/.ssh"
-        chmod 600 "$HOME/.ssh"/*
+        chmod 600 "$HOME/.ssh/"*
     fi
+
+    # Restore Windsurf data
+    restore_app_data "windsurf" "$HOME/.config/windsurf"
+
+    # Restore Brave data
+    restore_app_data "brave" "$HOME/.config/BraveSoftware/Brave-Browser"
+
+    # Restore Ledger Live data
+    restore_app_data "ledger_live" "$HOME/.config/Ledger Live"
 
     # Import GPG keys
     if [ -f "$BACKUP_DIR/gpg-backup.asc" ]; then
@@ -206,6 +297,19 @@ elif [ "$MODE" == "import" ]; then
         fi
     fi
 
+    # Import Windsurf settings and extensions
+    if [ -d "$BACKUP_DIR/windsurf" ]; then
+        echo "Restoring Windsurf configuration..."
+        mkdir -p "$HOME/.config/windsurf"
+        cp -r "$BACKUP_DIR/windsurf/." "$HOME/.config/windsurf/"
+        if [ -f "$BACKUP_DIR/windsurf/extensions_list.txt" ]; then
+            echo "Restoring Windsurf extensions..."
+            while read -r extension; do
+                windsurf --install-extension "$extension"
+            done < "$BACKUP_DIR/windsurf/extensions_list.txt"
+        fi
+    fi
+
     # Import browser profiles
     if [ -d "$BACKUP_DIR/.mozilla" ]; then
         cp -r "$BACKUP_DIR/.mozilla" "$HOME/"
@@ -215,6 +319,18 @@ elif [ "$MODE" == "import" ]; then
     fi
     if [ -d "$BACKUP_DIR/chromium" ]; then
         cp -r "$BACKUP_DIR/chromium" "$HOME/.config/"
+    fi
+    if [ -d "$BACKUP_DIR/brave" ]; then
+        echo "Restoring Brave Browser profile..."
+        mkdir -p "$HOME/.config/BraveSoftware/Brave-Browser"
+        cp -r "$BACKUP_DIR/brave/." "$HOME/.config/BraveSoftware/Brave-Browser/"
+    fi
+
+    # Import Ledger Live settings
+    if [ -d "$BACKUP_DIR/ledger-live" ]; then
+        echo "Restoring Ledger Live configuration..."
+        mkdir -p "$HOME/.config/Ledger Live"
+        cp -r "$BACKUP_DIR/ledger-live/." "$HOME/.config/Ledger Live/"
     fi
 
     # Import dotfiles for tools (e.g., .tool-versions)
@@ -238,8 +354,43 @@ elif [ "$MODE" == "import" ]; then
         cp -r "$BACKUP_DIR/.config/OpenRGB" "$HOME/.config/"
     fi
 
-    # Completion message
-    echo "Import completed successfully from $BACKUP_DIR"
-else
-    usage
+    # Install packages if they exist in backup and not skipped
+    if [ "$SKIP_PACKAGES" = false ]; then
+        if [ -f "$BACKUP_DIR/pacman_packages.txt" ]; then
+            echo "Installing official packages..."
+            sudo pacman -S --needed - < "$BACKUP_DIR/pacman_packages.txt"
+        fi
+
+        if [ -f "$BACKUP_DIR/aur_packages.txt" ]; then
+            echo "Installing AUR packages..."
+            if command -v yay >/dev/null 2>&1; then
+                yay -S --needed - < "$BACKUP_DIR/aur_packages.txt"
+            else
+                echo "Warning: yay not found. Please install AUR packages manually."
+            fi
+        fi
+    else
+        echo "Skipping package installation (--no-packages flag set)"
+    fi
+
+    # Enable systemd services if not skipped
+    if [ "$SKIP_SERVICES" = false ]; then
+        if [ -f "$BACKUP_DIR/systemd_user_services.txt" ]; then
+            echo "Enabling user systemd services..."
+            while read -r service; do
+                systemctl enable --user "$service"
+            done < "$BACKUP_DIR/systemd_user_services.txt"
+        fi
+
+        if [ -f "$BACKUP_DIR/systemd_system_services.txt" ]; then
+            echo "Enabling system systemd services..."
+            while read -r service; do
+                sudo systemctl enable "$service"
+            done < "$BACKUP_DIR/systemd_system_services.txt"
+        fi
+    else
+        echo "Skipping systemd service activation (--no-services flag set)"
+    fi
+
+    echo "Restore completed successfully"
 fi
