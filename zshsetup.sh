@@ -2,15 +2,16 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-h] [-v] [-n] [-t THEME] [-p PLUGINS...]"
+    echo "Usage: $0 [-h] [-v] [-n] [-t THEME] [-p PLUGINS...] [-f PLUGINS_FILE]"
     echo "Options:"
     echo "  -h          Show this help message"
     echo "  -v          Verbose output"
     echo "  -n          No backup (skip backing up existing configurations)"
-    echo "  -t THEME    Specify oh-my-zsh theme (default: 'robbyrussell')"
+    echo "  -t THEME    Specify oh-my-zsh theme (default: 'powerlevel10k/powerlevel10k')"
     echo "  -p PLUGINS  Specify additional plugins (space-separated list)"
+    echo "  -f FILE     Read additional plugins from file (one plugin per line)"
     echo
-    echo "Example: $0 -v -t agnoster -p 'git docker kubectl'"
+    echo "Example: $0 -v -t agnoster -p 'git docker kubectl' -f ~/.zsh_plugins"
     exit 1
 }
 
@@ -90,7 +91,23 @@ install_oh_my_zsh() {
 
 # Function to install plugins
 install_plugins() {
-    local plugins=($@)
+    local plugins=()
+    
+    # First argument might be a file
+    if [ -n "$1" ] && [ -f "$1" ]; then
+        local plugins_file="$1"
+        shift
+        # Read plugins from file (one per line)
+        while IFS= read -r plugin || [ -n "$plugin" ]; do
+            # Skip empty lines and comments
+            [[ -z "$plugin" || "$plugin" =~ ^[[:space:]]*# ]] && continue
+            plugins+=("$plugin")
+        done < "$plugins_file"
+    fi
+    
+    # Add any remaining plugins from command line
+    plugins+=("$@")
+    
     local custom_plugins_dir="$HOME/.oh-my-zsh/custom/plugins"
     
     # Install zsh-autosuggestions
@@ -118,13 +135,20 @@ install_plugins() {
     fi
     
     # Add custom plugins to .zshrc
-    local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search ${plugins[@]}"
+    local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search history-substring-search ${plugins[@]}"
     sed -i "s/plugins=(git)/plugins=($plugin_list)/" "$HOME/.zshrc"
 }
 
 # Function to configure theme
 configure_theme() {
     local theme=$1
+    
+    # Install powerlevel10k theme
+    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
+        log INFO "Installing powerlevel10k theme..."
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    fi
+    
     log INFO "Setting theme to $theme..."
     sed -i "s/ZSH_THEME=\"robbyrussell\"/ZSH_THEME=\"$theme\"/" "$HOME/.zshrc"
 }
@@ -132,11 +156,12 @@ configure_theme() {
 # Default values
 VERBOSE=false
 NO_BACKUP=false
-THEME="robbyrussell"
+THEME="powerlevel10k/powerlevel10k"
 PLUGINS=()
+PLUGINS_FILE=""
 
 # Parse arguments
-while getopts "hvnt:p:" opt; do
+while getopts "hvnt:p:f:" opt; do
     case $opt in
         h)
             usage
@@ -152,6 +177,13 @@ while getopts "hvnt:p:" opt; do
             ;;
         p)
             IFS=' ' read -r -a PLUGINS <<< "$OPTARG"
+            ;;
+        f)
+            PLUGINS_FILE="$OPTARG"
+            if [ ! -f "$PLUGINS_FILE" ]; then
+                log ERROR "Plugins file not found: $PLUGINS_FILE"
+                exit 1
+            fi
             ;;
         \?)
             usage
@@ -174,7 +206,11 @@ install_dependencies
 install_oh_my_zsh
 
 # Install and configure plugins
-install_plugins "${PLUGINS[@]}"
+if [ -n "$PLUGINS_FILE" ]; then
+    install_plugins "$PLUGINS_FILE" "${PLUGINS[@]}"
+else
+    install_plugins "${PLUGINS[@]}"
+fi
 
 # Configure theme
 configure_theme "$THEME"
@@ -214,7 +250,11 @@ echo "Press any key to proceed..."
 
 # Loop until a key is pressed
 while true; do
-read -rsn1 key  # Read a single character silently
-if [[ -n "$key" ]]; then
-nano .zshrc
+    read -rsn1 key  # Read a single character silently
+    if [[ -n "$key" ]]; then
+        nano .zshrc
+        break
+    fi
+done
+
 exit 0
