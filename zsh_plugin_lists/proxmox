@@ -28,7 +28,6 @@ zsh-navigation-tools
 # Command completion and suggestions
 docker
 docker-compose
-kubectl
 ansible
 alias-finder
 aliases

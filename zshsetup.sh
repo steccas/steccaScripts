@@ -136,7 +136,7 @@ install_plugins() {
     
     # Add custom plugins to .zshrc
     local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search history-substring-search ${plugins[@]}"
-    sed -i "s/plugins=(git)/plugins=($plugin_list)/" "$HOME/.zshrc"
+    sed -i "s|plugins=(git)|plugins=($plugin_list)|" "$HOME/.zshrc"
 }
 
 # Function to configure theme
@@ -150,7 +150,7 @@ configure_theme() {
     fi
     
     log INFO "Setting theme to $theme..."
-    sed -i "s/ZSH_THEME=\"robbyrussell\"/ZSH_THEME=\"$theme\"/" "$HOME/.zshrc"
+    sed -i "s|ZSH_THEME=\"[^\"]*\"|ZSH_THEME=\"$theme\"|" "$HOME/.zshrc"
 }
 
 # Default values
