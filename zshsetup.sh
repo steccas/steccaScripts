@@ -260,15 +260,15 @@ EOL
 log INFO "zsh setup completed successfully!"
 log INFO "Please restart your terminal or run 'zsh' to start using your new shell"
 
-echo "Press any key to proceed..."
+# echo "Press any key to proceed..."
 
-# Loop until a key is pressed
-while true; do
-    read -rsn1 key  # Read a single character silently
-    if [[ -n "$key" ]]; then
-        nano .zshrc
-        break
-    fi
-done
+# # Loop until a key is pressed
+# while true; do
+#     read -rsn1 key  # Read a single character silently
+#     if [[ -n "$key" ]]; then
+#         nano .zshrc
+#         break
+#     fi
+# done
 
 exit 0
