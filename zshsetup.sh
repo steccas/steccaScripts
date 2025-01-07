@@ -134,8 +134,14 @@ install_plugins() {
         git clone https://github.com/zsh-users/zsh-history-substring-search "$custom_plugins_dir/zsh-history-substring-search"
     fi
     
+    # Install apt plugin
+    if [ ! -d "$custom_plugins_dir/apt" ]; then
+        log INFO "Installing apt plugin..."
+        git clone https://github.com/GeoLMg/apt-zsh-plugin "$ZSH/plugins/apt-zsh-plugin"
+    fi
+    
     # Add custom plugins to .zshrc
-    local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search history-substring-search ${plugins[@]}"
+    local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search history-substring-search apt-zsh-plugin${plugins[@]}"
     sed -i "s|plugins=(git)|plugins=($plugin_list)|" "$HOME/.zshrc"
 }
 

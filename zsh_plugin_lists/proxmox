@@ -34,7 +34,6 @@ aliases
 
 # Package management
 debian
-apt
 
 # Man pages
 man
