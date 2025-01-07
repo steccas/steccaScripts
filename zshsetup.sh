@@ -87,6 +87,14 @@ install_oh_my_zsh() {
         log ERROR "Failed to install oh-my-zsh"
         exit 1
     fi
+
+    # Enable auto-updates
+    log INFO "Enabling oh-my-zsh auto-updates..."
+    sed -i 's/# zstyle '\'':omz:update'\'' mode auto/zstyle '\'':omz:update'\'' mode auto/' "$HOME/.zshrc"
+    
+    # Enable command correction
+    log INFO "Enabling command correction..."
+    sed -i 's/# ENABLE_CORRECTION="true"/ENABLE_CORRECTION="true"/' "$HOME/.zshrc"
 }
 
 # Function to install plugins
