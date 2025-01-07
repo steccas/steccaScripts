@@ -141,7 +141,7 @@ install_plugins() {
     fi
     
     # Add custom plugins to .zshrc
-    local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search history-substring-search apt-zsh-plugin${plugins[@]}"
+    local plugin_list="git zsh-autosuggestions zsh-syntax-highlighting zsh-completions zsh-history-substring-search history-substring-search apt-zsh-plugin ${plugins[@]}"
     sed -i "s|plugins=(git)|plugins=($plugin_list)|" "$HOME/.zshrc"
 }
 
