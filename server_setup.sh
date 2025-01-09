@@ -585,6 +585,8 @@ EOF
     fi
 fi
 
+execute /zshsetup.sh -f ./zsh_plugin_lists/proxmox false
+
 log "Server setup completed successfully!"
 log "Please review the following:"
 log "1. Check if all services are running correctly"
