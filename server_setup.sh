@@ -235,7 +235,9 @@ execute "pro attach $LIVEPATCH_TOKEN" false
 execute "canonical-livepatch status --verbose" false
 
 # Set nano as default editor
-execute "update-alternatives --set editor /usr/bin/nano"
+log "Setting nano as default editor..."
+execute "update-alternatives --install /usr/bin/editor editor /usr/bin/nano 100" false
+execute "update-alternatives --set editor /usr/bin/nano" false
 
 # Configure unattended-upgrades
 if [ "$SKIP_UPGRADES" = false ]; then
