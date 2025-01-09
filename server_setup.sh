@@ -361,8 +361,8 @@ setup_user() {
     # Extract optional information with defaults
     local full_name=$(yq ".users[$user_index].full_name // \"\"" "$USERS_CONFIG")
     local uid=$(yq ".users[$user_index].uid // \"\"" "$USERS_CONFIG")
-    local shell=$(yq ".users[$user_index].shell // \"/bin/bash\"" "$USERS_CONFIG")
-    local password=$(yq ".users[$user_index].password // \"\"" "$USERS_CONFIG")
+    local shell=$(yq ".users[$user_index].shell // \"/bin/bash\"" "$USERS_CONFIG" | tr -d '"')
+    local password=$(yq ".users[$user_index].password // \"\"" "$USERS_CONFIG") 
     
     # Check if user exists
     local is_new_user=false
@@ -400,13 +400,7 @@ setup_user() {
     groups=$(yq ".users[$user_index].groups[]" "$USERS_CONFIG" 2>/dev/null)
     if [ $? -eq 0 ] && [ -n "$groups" ] && [ "$groups" != "null" ]; then
         for group in $groups; do
-            if getent group "$group" >/dev/null; then
-                usermod -aG "$group" "$username"
-            else
-                log "Warning: Group $group does not exist, skipping it..."
-                #groupadd "$group"
-                #usermod -aG "$group" "$username"
-            fi
+            usermod -aG "$group" "$username"
         done
     fi
 
