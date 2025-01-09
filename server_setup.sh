@@ -421,21 +421,6 @@ setup_user() {
         done
     fi
 
-    # Setup zsh configuration (for both new and existing users)
-    log "Setting up zsh for user $username..."
-    
-    # Clone the repo in user's home directory
-    if ! execute "su - $username -c 'git clone https://github.com/steccas/steccaScripts.git'" false; then
-        log "Warning: Failed to clone steccaScripts repo for user $username"
-        return
-    fi
-    
-    # Run zsh setup from the cloned repo
-    if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'"; then
-        log "Warning: zsh setup failed for user $username, continuing with default shell"
-        execute "chsh -s /bin/bash $username" false # Fallback to bash
-    fi
-
     # Set password for new users only
     if [ "$is_new_user" = true ]; then
         if [ -n "$password" ]; then
@@ -454,6 +439,22 @@ setup_user() {
             fi
         fi
     fi
+
+    # Setup zsh configuration (for both new and existing users)
+    log "Setting up zsh for user $username..."
+    
+    # Clone the repo in user's home directory
+    if ! execute "su - $username -c 'git clone https://github.com/steccas/steccaScripts.git'" false; then
+        log "Warning: Failed to clone steccaScripts repo for user $username"
+        return
+    fi
+    
+    # Run zsh setup from the cloned repo
+    if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'"; then
+        log "Warning: zsh setup failed for user $username, continuing with default shell"
+        execute "chsh -s /bin/bash $username" false # Fallback to bash
+    fi
+
 
     # Setup SSH keys if home directory exists
     if [ -d "/home/$username" ]; then
