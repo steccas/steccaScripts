@@ -431,7 +431,7 @@ setup_user() {
     fi
     
     # Run zsh setup from the cloned repo
-    if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'" false; then
+    if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'"; then
         log "Warning: zsh setup failed for user $username, continuing with default shell"
         execute "chsh -s /bin/bash $username" false # Fallback to bash
     fi
