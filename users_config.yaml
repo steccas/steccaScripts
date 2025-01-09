@@ -1,0 +1,26 @@
+users:
+  - username: stecca
+    full_name: "Luca Steccanella"
+    uid: 1000
+    # password: "mysecurepass"  # Optional: if not set, will prompt during installation
+    groups:
+      - sudo
+      - docker
+      - adm
+    ssh:
+      github_username: steccas  # if present, will fetch keys from github
+      # authorized_keys:       # alternative to github_username
+      #   - "ssh-rsa AAAAB3..."
+    shell: /bin/zsh
+    
+  - username: admin
+    full_name: "System Administrator"
+    uid: 1001
+    password: "SecureAdminPass123"  # This user will be created with this password
+    groups:
+      - sudo
+      - docker
+    ssh:
+      authorized_keys:
+        - "ssh-rsa AAAAB3..."
+    shell: /bin/bash
