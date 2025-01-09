@@ -344,7 +344,7 @@ fi
 
 # Restart SSH service
 log "Restarting SSH service..."
-execute "systemctl restart sshd"
+execute "systemctl restart ssh"
 
 # Function to setup a user from YAML config
 setup_user() {
