@@ -220,7 +220,10 @@ fi
 # Setup livepatch
 log "Setting up Canonical Livepatch..."
 execute "snap install canonical-livepatch"
-execute "pro attach $LIVEPATCH_TOKEN"
+if ! execute "pro attach $LIVEPATCH_TOKEN"; then
+    log "Warning: Failed to attach Ubuntu Pro subscription. Livepatch may not be fully configured."
+    log "You can manually attach later using: pro attach <token>"
+fi
 execute "canonical-livepatch status --verbose"
 
 # Set nano as default editor
@@ -470,7 +473,7 @@ if [ -n "$USERS_CONFIG" ]; then
     # Check if yq is available
     if ! command -v yq &> /dev/null; then
         log "Installing yq..."
-        execute "snap install yq"
+        execute "apt install yq"
     fi
     
     # Validate YAML structure
