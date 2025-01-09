@@ -96,10 +96,21 @@ handle_error() {
 
 # Function to execute commands with error handling
 execute() {
-    log "Executing: $1"
-    if ! eval "$1"; then
-        handle_error "Failed to execute: $1"
+    local cmd="$1"
+    local fatal="${2:-true}"  # Second parameter determines if errors are fatal, defaults to true
+    
+    log "Executing: $cmd"
+    if ! eval "$cmd"; then
+        if [ "$fatal" = "true" ]; then
+            handle_error "Failed to execute: $cmd"  # This calls exit and will terminate the script
+        else
+            log "Warning: Failed to execute: $cmd"
+        fi
+        log "Debug: About to return 1 from execute function"
+        return 1  # This only exits the function
     fi
+    log "Debug: About to return 0 from execute function"
+    return 0  # This only exits the function
 }
 
 log "Starting server setup..."
@@ -220,11 +231,8 @@ fi
 # Setup livepatch
 log "Setting up Canonical Livepatch..."
 execute "snap install canonical-livepatch"
-if ! execute "pro attach $LIVEPATCH_TOKEN"; then
-    log "Warning: Failed to attach Ubuntu Pro subscription. Livepatch may not be fully configured."
-    log "You can manually attach later using: pro attach <token>"
-fi
-execute "canonical-livepatch status --verbose"
+execute "pro attach $LIVEPATCH_TOKEN" false
+execute "canonical-livepatch status --verbose" false
 
 # Set nano as default editor
 execute "update-alternatives --set editor /usr/bin/nano"
@@ -473,7 +481,10 @@ if [ -n "$USERS_CONFIG" ]; then
     # Check if yq is available
     if ! command -v yq &> /dev/null; then
         log "Installing yq..."
-        execute "apt install yq"
+        if ! execute "apt install yq" false; then
+            log "Warning: Failed to install yq using apt. Script may fail if yq is required."
+            log "Debug: Continuing after yq installation failure"
+        fi
     fi
     
     # Validate YAML structure
