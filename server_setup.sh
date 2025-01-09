@@ -8,7 +8,7 @@ fi
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] livepatch_token"
+    echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] livepatch_token"
     echo "Options:"
     echo "  -h           Show this help message"
     echo "  -s size      Swap file size in GB (default: 8)"
@@ -18,6 +18,7 @@ usage() {
     echo "  -t timezone Set system timezone (default: Europe/Rome)"
     echo "  -l locale   Set system locale (default: en_US.UTF-8)"
     echo "  -c config   Path to YAML user configuration file"
+    echo "  -q          Install and configure QEMU guest agent"
     exit 1
 }
 
@@ -29,9 +30,10 @@ NON_INTERACTIVE=false
 TIMEZONE="Europe/Rome"
 LOCALE="en_US.UTF-8"
 USERS_CONFIG=""
+INSTALL_QEMU=false
 
-# Parse arguments
-while getopts "hs:dunt:l:c:" opt; do
+# Parse command line arguments
+while getopts "hs:dunt:l:c:q" opt; do
     case $opt in
         h)
             usage
@@ -61,7 +63,11 @@ while getopts "hs:dunt:l:c:" opt; do
         c)
             USERS_CONFIG="$OPTARG"
             ;;
+        q)
+            INSTALL_QEMU=true
+            ;;
         \?)
+            echo "Invalid option: -$OPTARG" >&2
             usage
             ;;
     esac
@@ -101,11 +107,13 @@ log "Configuration:"
 log "- Swap Size: ${SWAP_SIZE}GB"
 log "- Docker: $([ "$SKIP_DOCKER" = true ] && echo "Skip" || echo "Install")"
 log "- Unattended Upgrades: $([ "$SKIP_UPGRADES" = true ] && echo "Skip" || echo "Configure")"
+log "- Interactive: $([ "$NON_INTERACTIVE" = true ] && echo "No" || echo "Yes")"
 log "- Timezone: $TIMEZONE"
 log "- Locale: $LOCALE"
+log "- QEMU Guest Agent: $([ "$INSTALL_QEMU" = true ] && echo "Install" || echo "Skip")"
 
 if [ -n "$USERS_CONFIG" ]; then
-    log "- Users to be created:"
+    log "Users to be created:"
     user_count=$(yq '.users | length' "$USERS_CONFIG")
     if [ $? -ne 0 ] || [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
         handle_error "Failed to get user count from configuration file"
@@ -195,16 +203,19 @@ PACKAGES=(
     yq
     htop
     ncdu
-    qemu-guest-agent
 )
 
 [ "$SKIP_UPGRADES" = false ] && PACKAGES+=(unattended-upgrades)
+[ "$INSTALL_QEMU" = true ] && PACKAGES+=(qemu-guest-agent)
 
 execute "apt install -y ${PACKAGES[*]}"
 
-# Setup qemu-guest-agent
-execute "systemctl start qemu-guest-agent"
-execute "systemctl enable qemu-guest-agent"
+# Setup qemu-guest-agent if requested
+if [ "$INSTALL_QEMU" = true ]; then
+    log "Setting up QEMU guest agent..."
+    execute "systemctl start qemu-guest-agent"
+    execute "systemctl enable qemu-guest-agent"
+fi
 
 # Setup livepatch
 log "Setting up Canonical Livepatch..."
