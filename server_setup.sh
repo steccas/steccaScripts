@@ -158,8 +158,8 @@ EOF
 
 # Remove initramfs-tools and generate new initramfs with dracut
 log "Generating new initramfs with dracut..."
+#execute "update-initramfs -d -k all"  # Delete all old initramfs
 execute "apt remove -y initramfs-tools initramfs-tools-core"
-execute "update-initramfs -d -k all"  # Delete all old initramfs
 execute "dracut -f --regenerate-all"  # Generate new initramfs for all kernels
 
 # Configure grub to use dracut
@@ -195,11 +195,16 @@ PACKAGES=(
     yq
     htop
     ncdu
+    qemu-guest-agent
 )
 
 [ "$SKIP_UPGRADES" = false ] && PACKAGES+=(unattended-upgrades)
 
 execute "apt install -y ${PACKAGES[*]}"
+
+# Setup qemu-guest-agent
+execute "systemctl start qemu-guest-agent"
+execute "systemctl enable qemu-guest-agent"
 
 # Setup livepatch
 log "Setting up Canonical Livepatch..."
