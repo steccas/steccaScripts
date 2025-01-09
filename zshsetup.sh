@@ -147,9 +147,9 @@ install_plugins() {
     fi
     
     # Install apt plugin
-    if [ ! -d "$custom_plugins_dir/apt" ]; then
+    if [ ! -d "$custom_plugins_dir/apt-zsh-plugin" ]; then
         log INFO "Installing apt plugin..."
-        git clone https://github.com/GeoLMg/apt-zsh-plugin "$ZSH/plugins/apt-zsh-plugin"
+        git clone https://github.com/GeoLMg/apt-zsh-plugin "$custom_plugins_dir/apt-zsh-plugin"
     fi
     
     # Add custom plugins to .zshrc
