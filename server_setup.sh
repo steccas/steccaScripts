@@ -182,8 +182,8 @@ fi
 # execute "dracut -f --regenerate-all"  # Generate new initramfs for all kernels
 
 # Configure grub to use dracut
-log "Updating grub configuration..."
-execute "update-grub"
+#log "Updating grub configuration..."
+#execute "update-grub"
 
 # Install basic packages
 log "Installing basic packages..."
