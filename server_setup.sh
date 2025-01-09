@@ -106,12 +106,15 @@ log "- Locale: $LOCALE"
 
 if [ -n "$USERS_CONFIG" ]; then
     log "- Users to be created:"
-    user_count=$(yq eval '.users | length' "$USERS_CONFIG")
+    user_count=$(yq '.users | length' "$USERS_CONFIG")
+    if [ $? -ne 0 ] || [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
+        handle_error "Failed to get user count from configuration file"
+    fi
     for i in $(seq 0 $((user_count - 1))); do
-        username=$(yq eval ".users[$i].username" "$USERS_CONFIG")
-        fullname=$(yq eval ".users[$i].full_name // \"<no full name>\"" "$USERS_CONFIG")
-        groups=$(yq eval ".users[$i].groups[]" "$USERS_CONFIG" | tr '\n' ',' | sed 's/,$//')
-        github=$(yq eval ".users[$i].ssh.github_username // \"<no github>\"" "$USERS_CONFIG")
+        username=$(yq ".users[$i].username" "$USERS_CONFIG")
+        fullname=$(yq ".users[$i].full_name // \"<no full name>\"" "$USERS_CONFIG")
+        groups=$(yq ".users[$i].groups[]" "$USERS_CONFIG" | tr '\n' ',' | sed 's/,$//')
+        github=$(yq ".users[$i].ssh.github_username // \"<no github>\"" "$USERS_CONFIG")
         log "  * $username (${fullname})"
         log "    - Groups: ${groups:-<no groups>}"
         log "    - GitHub: $github"
@@ -320,17 +323,17 @@ setup_user() {
     local base_query=".users[$user_index]"
     
     # Extract required user information
-    local username=$(yq eval "${base_query}.username" "$USERS_CONFIG")
+    local username=$(yq ".users[$user_index].username" "$USERS_CONFIG")
     if [ -z "$username" ] || [ "$username" = "null" ]; then
         log "Error: Username is required for user at index $user_index"
         return 1
     fi
     
     # Extract optional information with defaults
-    local full_name=$(yq eval "${base_query}.full_name // \"\"" "$USERS_CONFIG")
-    local uid=$(yq eval "${base_query}.uid // \"\"" "$USERS_CONFIG")
-    local shell=$(yq eval "${base_query}.shell // \"/bin/bash\"" "$USERS_CONFIG")
-    local password=$(yq eval "${base_query}.password // \"\"" "$USERS_CONFIG")
+    local full_name=$(yq ".users[$user_index].full_name // \"\"" "$USERS_CONFIG")
+    local uid=$(yq ".users[$user_index].uid // \"\"" "$USERS_CONFIG")
+    local shell=$(yq ".users[$user_index].shell // \"/bin/bash\"" "$USERS_CONFIG")
+    local password=$(yq ".users[$user_index].password // \"\"" "$USERS_CONFIG")
     
     # Check if user exists
     local is_new_user=false
@@ -364,8 +367,9 @@ setup_user() {
     fi
     
     # Handle groups (for both new and existing users)
-    local groups=$(yq eval "${base_query}.groups[]" "$USERS_CONFIG")
-    if [ -n "$groups" ] && [ "$groups" != "null" ]; then
+    local groups
+    groups=$(yq ".users[$user_index].groups[]" "$USERS_CONFIG" 2>/dev/null)
+    if [ $? -eq 0 ] && [ -n "$groups" ] && [ "$groups" != "null" ]; then
         for group in $groups; do
             if getent group "$group" >/dev/null; then
                 usermod -aG "$group" "$username"
@@ -418,16 +422,18 @@ setup_user() {
         chmod 700 "/home/$username/.ssh"
         
         # Check for GitHub username
-        local github_user=$(yq eval "${base_query}.ssh.github_username // \"\"" "$USERS_CONFIG")
-        if [ -n "$github_user" ] && [ "$github_user" != "null" ]; then
+        local github_user
+        github_user=$(yq ".users[$user_index].ssh.github_username // \"\"" "$USERS_CONFIG" 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$github_user" ] && [ "$github_user" != "null" ]; then
             log "Fetching GitHub SSH keys for $github_user"
             if ! curl -s "https://github.com/$github_user.keys" > "/home/$username/.ssh/authorized_keys"; then
                 log "Warning: Failed to fetch GitHub SSH keys for $github_user"
             fi
         else
             # Check for direct authorized_keys
-            local keys=$(yq eval "${base_query}.ssh.authorized_keys[]" "$USERS_CONFIG")
-            if [ -n "$keys" ] && [ "$keys" != "null" ]; then
+            local keys
+            keys=$(yq ".users[$user_index].ssh.authorized_keys[]" "$USERS_CONFIG" 2>/dev/null)
+            if [ $? -eq 0 ] && [ -n "$keys" ] && [ "$keys" != "null" ]; then
                 echo "$keys" > "/home/$username/.ssh/authorized_keys"
                 chmod 600 "/home/$username/.ssh/authorized_keys"
                 chown -R "$username:$username" "/home/$username/.ssh"
@@ -452,12 +458,16 @@ if [ -n "$USERS_CONFIG" ]; then
     fi
     
     # Validate YAML structure
-    if ! yq eval '.users' "$USERS_CONFIG" >/dev/null 2>&1; then
+    if ! yq '.users' "$USERS_CONFIG" >/dev/null 2>&1; then
         handle_error "Invalid YAML structure: .users array not found"
     fi
     
     # Get number of users
-    user_count=$(yq eval '.users | length' "$USERS_CONFIG")
+    user_count=$(yq '.users | length' "$USERS_CONFIG")
+    if [ $? -ne 0 ] || [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
+        handle_error "Failed to get user count from configuration file"
+    fi
+    
     if [ "$user_count" -eq 0 ]; then
         log "Warning: No users defined in configuration file"
     else
@@ -520,9 +530,9 @@ EOF
     
     # Add users to docker group if using YAML config
     if [ -n "$USERS_CONFIG" ]; then
-        user_count=$(yq eval '.users | length' "$USERS_CONFIG")
+        user_count=$(yq '.users | length' "$USERS_CONFIG")
         for i in $(seq 0 $((user_count - 1))); do
-            username=$(yq eval ".users[$i].username" "$USERS_CONFIG")
+            username=$(yq ".users[$i].username" "$USERS_CONFIG")
             if [ -n "$username" ]; then
                 log "Adding user $username to docker group..."
                 execute "usermod -aG docker $username"
