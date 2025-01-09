@@ -165,21 +165,21 @@ if [ -n "$LOCALE" ]; then
     execute "update-locale LANG=$LOCALE"
 fi
 
-# Switch to dracut
-log "Switching to dracut..."
-execute "apt install -y dracut dracut-core tpm2-tools libtss2-tcti-device0 cryptsetup"
+# # Switch to dracut
+# log "Switching to dracut..."
+# execute "apt install -y dracut dracut-core tpm2-tools libtss2-tcti-device0 cryptsetup"
 
-# Configure dracut
-cat > /etc/dracut.conf << 'EOF'
-# Security modules
-add_dracutmodules+=" tpm2-tss crypt "
-EOF
+# # Configure dracut
+# cat > /etc/dracut.conf << 'EOF'
+# # Security modules
+# add_dracutmodules+=" tpm2-tss crypt "
+# EOF
 
 # Remove initramfs-tools and generate new initramfs with dracut
-log "Generating new initramfs with dracut..."
-#execute "update-initramfs -d -k all"  # Delete all old initramfs
-execute "apt remove -y initramfs-tools initramfs-tools-core"
-execute "dracut -f --regenerate-all"  # Generate new initramfs for all kernels
+# log "Generating new initramfs with dracut..."
+# #execute "update-initramfs -d -k all"  # Delete all old initramfs
+# execute "apt remove -y initramfs-tools initramfs-tools-core"
+# execute "dracut -f --regenerate-all"  # Generate new initramfs for all kernels
 
 # Configure grub to use dracut
 log "Updating grub configuration..."
