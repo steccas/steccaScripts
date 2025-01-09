@@ -423,19 +423,17 @@ setup_user() {
 
     # Setup zsh configuration (for both new and existing users)
     log "Setting up zsh for user $username..."
-    local script_dir="$(cd "$(dirname "$0")" && pwd)"
-    local zsh_script="$script_dir/zshsetup.sh"
-    local zsh_plugins="$script_dir/zsh_plugin_lists/proxmox"
     
-    if [ ! -f "$zsh_script" ]; then
-        log "Warning: $zsh_script not found, skipping zsh setup"
-    elif [ ! -f "$zsh_plugins" ]; then
-        log "Warning: $zsh_plugins not found, skipping zsh setup"
-    else
-        if ! execute "su - $username -c '$zsh_script -f $zsh_plugins'"; then
-            log "Warning: zsh setup failed for user $username, continuing with default shell"
-            execute "chsh -s /bin/bash $username" false # Fallback to bash
-        fi
+    # Clone the repo in user's home directory
+    if ! execute "su - $username -c 'git clone https://github.com/steccas/steccaScripts.git'" false; then
+        log "Warning: Failed to clone steccaScripts repo for user $username"
+        return
+    fi
+    
+    # Run zsh setup from the cloned repo
+    if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'" false; then
+        log "Warning: zsh setup failed for user $username, continuing with default shell"
+        execute "chsh -s /bin/bash $username" false # Fallback to bash
     fi
 
     # Set password for new users only
