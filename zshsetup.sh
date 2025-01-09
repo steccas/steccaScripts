@@ -59,12 +59,12 @@ install_dependencies() {
     log INFO "Installing required packages..."
     
     if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update
-        sudo apt-get install -y zsh git curl wget nano
+        sudo -S apt-get update
+        sudo -S apt-get install -y zsh git curl wget nano
     elif command -v yum >/dev/null 2>&1; then
-        sudo yum -y install zsh git curl wget nano
+        sudo -S yum -y install zsh git curl wget nano
     elif command -v pacman >/dev/null 2>&1; then
-        sudo pacman -Sy --noconfirm zsh git curl wget nano
+        sudo -S pacman -Sy --noconfirm zsh git curl wget nano
     else
         log ERROR "Unsupported package manager. Please install zsh, git, curl, wget, and nano manually."
         exit 1
