@@ -95,6 +95,10 @@ install_oh_my_zsh() {
     # Enable command correction
     log INFO "Enabling command correction..."
     sed -i 's/# ENABLE_CORRECTION="true"/ENABLE_CORRECTION="true"/' "$HOME/.zshrc"
+    
+    # Set history timestamps
+    log INFO "Setting history timestamps format..."
+    sed -i 's/# HIST_STAMPS="mm\/dd\/yyyy"/HIST_STAMPS="mm\/dd\/yyyy"/' "$HOME/.zshrc"
 }
 
 # Function to install plugins
@@ -256,6 +260,12 @@ setopt HIST_IGNORE_SPACE
 bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
 EOL
+
+# Set zsh as default shell
+if [ "$SHELL" != "$(which zsh)" ]; then
+    log INFO "Setting zsh as default shell..."
+    chsh -s "$(which zsh)"
+fi
 
 log INFO "zsh setup completed successfully!"
 log INFO "Please restart your terminal or run 'zsh' to start using your new shell"
