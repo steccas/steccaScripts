@@ -374,7 +374,7 @@ setup_user() {
     
     if [ "$NON_INTERACTIVE" = false ]; then
         read -p "Do you want to proceed with this user setup? (y/N) " confirm
-        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
             log "User setup skipped by user request"
             return 0
         fi
@@ -422,8 +422,9 @@ setup_user() {
 
     # Setup zsh configuration (for both new and existing users)
     log "Setting up zsh for user $username..."
-    local zsh_script="$(dirname $0)/zshsetup.sh"
-    local zsh_plugins="$(dirname $0)/zsh_plugin_lists/proxmox"
+    local script_dir="$(cd "$(dirname "$0")" && pwd)"
+    local zsh_script="$script_dir/zshsetup.sh"
+    local zsh_plugins="$script_dir/zsh_plugin_lists/proxmox"
     
     if [ ! -f "$zsh_script" ]; then
         log "Warning: $zsh_script not found, skipping zsh setup"
