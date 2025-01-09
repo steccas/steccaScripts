@@ -364,6 +364,22 @@ setup_user() {
     local shell=$(yq ".users[$user_index].shell // \"/bin/bash\"" "$USERS_CONFIG" | tr -d '"')
     local password=$(yq ".users[$user_index].password // \"\"" "$USERS_CONFIG") 
     
+    # Log user details
+    log "User details:"
+    log "  - Username: $username"
+    log "  - Full Name: ${full_name:-<not set>}"
+    log "  - UID: ${uid:-<auto>}"
+    log "  - Shell: $shell"
+    log "  - Password: $([ -n "$password" ] && echo "<set>" || echo "<not set>")"
+    
+    if [ "$NON_INTERACTIVE" = false ]; then
+        read -p "Do you want to proceed with this user setup? (y/N) " confirm
+        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+            log "User setup skipped by user request"
+            return 0
+        fi
+    fi
+    
     # Check if user exists
     local is_new_user=false
     if id "$username" >/dev/null 2>&1; then
