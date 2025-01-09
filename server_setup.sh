@@ -214,6 +214,7 @@ PACKAGES=(
     yq
     htop
     ncdu
+    ssh-import-id
 )
 
 [ "$SKIP_UPGRADES" = false ] && PACKAGES+=(unattended-upgrades)
@@ -380,34 +381,34 @@ setup_user() {
         fi
     fi
     
-    # Check if user exists
-    local is_new_user=false
-    if id "$username" >/dev/null 2>&1; then
+    # Check if user exists using getent which is more reliable
+    local is_new_user=true
+    if getent passwd "$username" >/dev/null 2>&1; then
+        is_new_user=false
         log "User $username already exists, updating configuration..."
         
         # Update full name if provided
         if [ -n "$full_name" ] && [ "$full_name" != "null" ]; then
-            execute "chfn -f \"$full_name\" $username"
+            execute "chfn -f \"$full_name\" $username" false
         fi
         
-        # Update shell if provided
-        if [ -n "$shell" ] && [ "$shell" != "null" ]; then
-            execute "chsh -s \"$shell\" $username"
+        # Update shell if provided and if it's different from current
+        local current_shell=$(getent passwd "$username" | cut -d: -f7)
+        if [ -n "$shell" ] && [ "$shell" != "null" ] && [ "$current_shell" != "$shell" ]; then
+            log "Updating shell from $current_shell to $shell"
+            execute "chsh -s \"$shell\" $username" false
         fi
     else
-        is_new_user=true
-        # Create new user
-        log "Creating user: $username"
-        if [ -n "$uid" ] && [ "$uid" != "null" ]; then
-            local uid_arg="-u $uid"
-        else
-            local uid_arg=""
-        fi
+        log "Creating new user: $username"
+        # Create new user with all options in one command
+        local uid_opt=""
+        [ -n "$uid" ] && [ "$uid" != "null" ] && uid_opt="-u $uid"
+        local comment_opt=""
+        [ -n "$full_name" ] && [ "$full_name" != "null" ] && comment_opt="-c \"$full_name\""
         
-        if [ -n "$full_name" ] && [ "$full_name" != "null" ]; then
-            useradd -m $uid_arg -s "$shell" -c "$full_name" "$username"
-        else
-            useradd -m $uid_arg -s "$shell" "$username"
+        if ! execute "useradd -m -s \"$shell\" $uid_opt $comment_opt \"$username\""; then
+            log "Error: Failed to create user $username"
+            return 1
         fi
     fi
     
@@ -433,7 +434,7 @@ setup_user() {
     else
         if ! execute "su - $username -c '$zsh_script -f $zsh_plugins'"; then
             log "Warning: zsh setup failed for user $username, continuing with default shell"
-            execute "chsh -s /bin/bash $username"  # Fallback to bash
+            execute "chsh -s /bin/bash $username" false # Fallback to bash
         fi
     fi
 
@@ -460,14 +461,15 @@ setup_user() {
     if [ -d "/home/$username" ]; then
         mkdir -p "/home/$username/.ssh"
         chmod 700 "/home/$username/.ssh"
+        chown "$username:$username" "/home/$username/.ssh"
         
         # Check for GitHub username
         local github_user
         github_user=$(yq ".users[$user_index].ssh.github_username // \"\"" "$USERS_CONFIG" 2>/dev/null)
         if [ $? -eq 0 ] && [ -n "$github_user" ] && [ "$github_user" != "null" ]; then
-            log "Fetching GitHub SSH keys for $github_user"
-            if ! curl -s "https://github.com/$github_user.keys" > "/home/$username/.ssh/authorized_keys"; then
-                log "Warning: Failed to fetch GitHub SSH keys for $github_user"
+            log "Importing GitHub SSH keys for $github_user"
+            if ! execute "su - $username -c 'ssh-import-id-gh $github_user'" false; then
+                log "Warning: Failed to import GitHub SSH keys for $github_user"
             fi
         else
             # Check for direct authorized_keys
