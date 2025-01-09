@@ -287,14 +287,14 @@ if [ -f /swap.img ]; then
 fi
 
 # Create and configure new swap
-execute "fallocate -l ${SWAP_SIZE}G /swapfile"
-execute "chmod 600 /swapfile"
-execute "mkswap /swapfile"
-execute "swapon /swapfile"
+execute "fallocate -l ${SWAP_SIZE}G /swap.img"
+execute "chmod 600 /swap.img"
+execute "mkswap /swap.img"
+execute "swapon /swap.img"
 
 # Update fstab if needed
-if ! grep -q "/swapfile" /etc/fstab; then
-    execute "echo '/swapfile none swap sw 0 0' >> /etc/fstab"
+if ! grep -q "/swap.img" /etc/fstab; then
+    execute "echo '/swap.img none swap sw 0 0' >> /etc/fstab"
 fi
 
 # Configure swap behavior
