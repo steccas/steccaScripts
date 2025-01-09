@@ -220,7 +220,7 @@ fi
 # Setup livepatch
 log "Setting up Canonical Livepatch..."
 execute "snap install canonical-livepatch"
-execute "canonical-livepatch enable $LIVEPATCH_TOKEN"
+execute "pro attach $LIVEPATCH_TOKEN"
 execute "canonical-livepatch status --verbose"
 
 # Set nano as default editor
@@ -390,9 +390,9 @@ setup_user() {
             if getent group "$group" >/dev/null; then
                 usermod -aG "$group" "$username"
             else
-                log "Warning: Group $group does not exist, creating it..."
-                groupadd "$group"
-                usermod -aG "$group" "$username"
+                log "Warning: Group $group does not exist, skipping it..."
+                #groupadd "$group"
+                #usermod -aG "$group" "$username"
             fi
         done
     fi
