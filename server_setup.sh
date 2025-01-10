@@ -585,6 +585,13 @@ EOF
     fi
 fi
 
+# Configure IP forwarding for Docker
+if [ "$SKIP_DOCKER" = false ]; then
+    log "Configuring IP forwarding for Docker..."
+    execute "sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf"
+    execute "sysctl -p"
+fi
+
 execute ./zshsetup.sh -f ./zsh_plugin_lists/proxmox false
 
 log "Server setup completed successfully!"
