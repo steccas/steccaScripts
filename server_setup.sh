@@ -585,11 +585,54 @@ EOF
     fi
 fi
 
-# Configure IP forwarding for Docker
+# Configure IP forwarding and network optimizations
 if [ "$SKIP_DOCKER" = false ]; then
-    log "Configuring IP forwarding for Docker..."
-    execute "sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf"
-    execute "sysctl -p"
+    log "Configuring IP forwarding and network optimizations..."
+    
+    # Create network optimization configuration file
+    execute "cat > /etc/sysctl.d/99-network-tune.conf << 'EOF'
+# Enable IP forwarding for Docker
+net.ipv4.ip_forward=1
+
+# Increase system IP port limits
+net.ipv4.ip_local_port_range=1024 65535
+
+# Increase TCP max buffer size
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+
+# Increase Linux autotuning TCP buffer limits
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 65536 16777216
+
+# Enable TCP fast open
+net.ipv4.tcp_fastopen=3
+
+# Increase the maximum length of processor input queues
+net.core.netdev_max_backlog=16384
+
+# Increase the maximum number of incoming connections
+net.core.somaxconn=8192
+
+# Reuse and recycle TIME_WAIT sockets more quickly
+net.ipv4.tcp_tw_reuse=1
+net.ipv4.tcp_fin_timeout=15
+
+# Disable IPv6 if not needed
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+net.ipv6.conf.lo.disable_ipv6=1
+
+# Protection against TCP time-wait assassination
+net.ipv4.tcp_rfc1337=1
+
+# Protection against SYN flood attacks
+net.ipv4.tcp_syncookies=1
+net.ipv4.tcp_max_syn_backlog=8192
+EOF"
+    
+    # Apply the changes
+    execute "sysctl -p /etc/sysctl.d/99-network-tune.conf"
 fi
 
 execute ./zshsetup.sh -f ./zsh_plugin_lists/proxmox false
