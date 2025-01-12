@@ -558,7 +558,6 @@ if [ "$SKIP_DOCKER" = false ]; then
     cat > /etc/docker/daemon.json << 'EOF'
 {
   "iptables": true,
-  "bridge": "none",
   "live-restore": true,
   "userland-proxy": false
 }
