@@ -114,6 +114,7 @@ execute() {
 }
 
 log "Starting server setup..."
+apt update && apt install yq
 log "Configuration:"
 log "- Swap Size: ${SWAP_SIZE}GB"
 log "- Docker: $([ "$SKIP_DOCKER" = true ] && echo "Skip" || echo "Install")"
