@@ -1,0 +1,35 @@
+# Core development tools
+command-not-found
+
+# System tools and utilities
+sudo
+systemd
+screen
+copyfile
+copybuffer
+copypath
+cp
+
+# SSH and remote management
+ssh-agent
+rsync
+
+# Directory navigation and history
+dirhistory
+z
+history
+zsh-interactive-cd
+zsh-navigation-tools
+
+# Command completion and suggestions
+alias-finder
+aliases
+
+# Package management
+debian
+
+# Man pages
+man
+
+# Themes
+themes
