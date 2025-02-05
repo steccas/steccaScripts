@@ -100,6 +100,9 @@ if ! ip link show "$INTERFACE" &>/dev/null; then
     exit 1
 fi
 
+# Add /usr/sbin to PATH if not already present
+[[ ":$PATH:" != *":/usr/sbin:"* ]] && export PATH="$PATH:/usr/sbin"
+
 # Check for required tools
 for tool in wakeonlan etherwake ping; do
     if ! command -v $tool &>/dev/null; then
@@ -107,9 +110,6 @@ for tool in wakeonlan etherwake ping; do
         exit 1
     fi
 done
-
-# Add /usr/sbin to PATH if not already present
-[[ ":$PATH:" != *":/usr/sbin:"* ]] && export PATH="$PATH:/usr/sbin"
 
 log INFO "Starting wake-on-LAN for device:"
 log INFO "- MAC Address: $MAC_ADDRESS"
