@@ -300,28 +300,22 @@ if [ "$SWAP_SIZE" -gt 0 ]; then
     execute "chmod 600 /swap.img"
     execute "mkswap /swap.img"
     execute "swapon /swap.img"
+    # Update fstab if needed
+    if ! grep -q "/swap.img" /etc/fstab; then
+        execute "echo '/swap.img none swap sw 0 0' >> /etc/fstab"
+    fi
+    # Configure swap behavior
+    execute "sysctl vm.swappiness=10"
+    execute "sysctl vm.vfs_cache_pressure=50"
+    # Make sysctl settings permanent
+    if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
+        execute "echo 'vm.swappiness=10' >> /etc/sysctl.conf"
+    fi
+    if ! grep -q "vm.vfs_cache_pressure" /etc/sysctl.conf; then
+        execute "echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf"
+    fi
 else
     log "Skipping swap configuration (size set to 0)"
-fi
-execute "chmod 600 /swap.img"
-execute "mkswap /swap.img"
-execute "swapon /swap.img"
-
-# Update fstab if needed
-if ! grep -q "/swap.img" /etc/fstab; then
-    execute "echo '/swap.img none swap sw 0 0' >> /etc/fstab"
-fi
-
-# Configure swap behavior
-execute "sysctl vm.swappiness=10"
-execute "sysctl vm.vfs_cache_pressure=50"
-
-# Make sysctl settings permanent
-if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
-    execute "echo 'vm.swappiness=10' >> /etc/sysctl.conf"
-fi
-if ! grep -q "vm.vfs_cache_pressure" /etc/sysctl.conf; then
-    execute "echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf"
 fi
 
 # Configure firewall if not skipped
