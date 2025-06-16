@@ -8,7 +8,7 @@ fi
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] [-k livepatch_token]"
+    echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] [-k livepatch_token] [-f]"
     echo "Options:"
     echo "  -h           Show this help message"
     echo "  -s size      Swap file size in GB (default: 8)"
@@ -20,6 +20,7 @@ usage() {
     echo "  -c config   Path to YAML user configuration file"
     echo "  -q          Install and configure QEMU guest agent"
     echo "  -k token    Canonical Livepatch token (optional)"
+    echo "  -f          Skip UFW firewall configuration"
     exit 1
 }
 
@@ -27,6 +28,7 @@ usage() {
 SWAP_SIZE=8
 SKIP_DOCKER=false
 SKIP_UPGRADES=false
+SKIP_UFW=false
 NON_INTERACTIVE=false
 TIMEZONE="Europe/Rome"
 LOCALE="en_US.UTF-8"
@@ -35,7 +37,7 @@ INSTALL_QEMU=false
 
 # Parse command line arguments
 LIVEPATCH_TOKEN=""
-while getopts "hs:dunt:l:c:qk:" opt; do
+while getopts "hs:dunt:l:c:qk:f" opt; do
     case $opt in
         h)
             usage
@@ -70,6 +72,9 @@ while getopts "hs:dunt:l:c:qk:" opt; do
             ;;
         k)
             LIVEPATCH_TOKEN="$OPTARG"
+            ;;
+        f)
+            SKIP_UFW=true
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -120,6 +125,7 @@ log "- Interactive: $([ "$NON_INTERACTIVE" = true ] && echo "No" || echo "Yes")"
 log "- Timezone: $TIMEZONE"
 log "- Locale: $LOCALE"
 log "- QEMU Guest Agent: $([ "$INSTALL_QEMU" = true ] && echo "Install" || echo "Skip")"
+log "- UFW Firewall: $([ "$SKIP_UFW" = true ] && echo "Skip" || echo "Configure")"
 
 if [ -n "$USERS_CONFIG" ]; then
     log "Users to be created:"
@@ -318,14 +324,18 @@ if ! grep -q "vm.vfs_cache_pressure" /etc/sysctl.conf; then
     execute "echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf"
 fi
 
-# Configure firewall
-log "Configuring UFW firewall..."
-execute "ufw allow OpenSSH"
-execute "ufw default allow routed"
-if [ "$NON_INTERACTIVE" = true ]; then
-    execute "ufw --force enable"
+# Configure firewall if not skipped
+if [ "$SKIP_UFW" = false ]; then
+    log "Configuring UFW firewall..."
+    execute "ufw allow OpenSSH"
+    execute "ufw default allow routed"
+    if [ "$NON_INTERACTIVE" = true ]; then
+        execute "ufw --force enable"
+    else
+        execute "ufw enable"
+    fi
 else
-    execute "ufw enable"
+    log "Skipping UFW firewall configuration"
 fi
 
 # Secure SSH configuration
@@ -572,9 +582,12 @@ if [ "$SKIP_DOCKER" = false ]; then
 }
 EOF
     
-    # Allow forwarded ports in UFW for Docker
-    execute "sed -i '/DEFAULT_FORWARD_POLICY=/c\DEFAULT_FORWARD_POLICY=\"ACCEPT\"' /etc/default/ufw"
-    execute "ufw reload"
+    # Allow forwarded ports in UFW for Docker, if UFW is enabled
+    if [ "$SKIP_UFW" = false ]; then
+        log "Configuring UFW for Docker networking..."
+        execute "sed -i '/DEFAULT_FORWARD_POLICY=/c\DEFAULT_FORWARD_POLICY=\"ACCEPT\"' /etc/default/ufw"
+        execute "ufw reload"
+    fi
     
     # Enable and start Docker service
     execute "systemctl enable docker"
