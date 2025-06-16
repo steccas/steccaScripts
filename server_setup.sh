@@ -43,8 +43,8 @@ while getopts "hs:dunt:l:c:qk:f" opt; do
             usage
             ;;
         s)
-            if ! [[ "$OPTARG" =~ ^[0-9]+$ ]] || [ "$OPTARG" -lt 1 ]; then
-                echo "Error: Swap size must be a positive number"
+            if ! [[ "$OPTARG" =~ ^[0-9]+$ ]] || [ "$OPTARG" -lt 0 ]; then
+                echo "Error: Swap size must be a non-negative number"
                 exit 1
             fi
             SWAP_SIZE=$OPTARG
