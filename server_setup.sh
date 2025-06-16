@@ -8,7 +8,7 @@ fi
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] livepatch_token"
+    echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] [-k livepatch_token]"
     echo "Options:"
     echo "  -h           Show this help message"
     echo "  -s size      Swap file size in GB (default: 8)"
@@ -19,6 +19,7 @@ usage() {
     echo "  -l locale   Set system locale (default: en_US.UTF-8)"
     echo "  -c config   Path to YAML user configuration file"
     echo "  -q          Install and configure QEMU guest agent"
+    echo "  -k token    Canonical Livepatch token (optional)"
     exit 1
 }
 
@@ -33,7 +34,8 @@ USERS_CONFIG=""
 INSTALL_QEMU=false
 
 # Parse command line arguments
-while getopts "hs:dunt:l:c:q" opt; do
+LIVEPATCH_TOKEN=""
+while getopts "hs:dunt:l:c:qk:" opt; do
     case $opt in
         h)
             usage
@@ -66,6 +68,9 @@ while getopts "hs:dunt:l:c:q" opt; do
         q)
             INSTALL_QEMU=true
             ;;
+        k)
+            LIVEPATCH_TOKEN="$OPTARG"
+            ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
             usage
@@ -74,14 +79,6 @@ while getopts "hs:dunt:l:c:q" opt; do
 done
 
 shift $((OPTIND-1))
-
-# Check for required arguments
-if [ "$#" -ne 1 ]; then
-    echo "Error: Missing required arguments"
-    usage
-fi
-
-LIVEPATCH_TOKEN="$1"
 
 # Function to log messages
 log() {
@@ -230,11 +227,15 @@ if [ "$INSTALL_QEMU" = true ]; then
     execute "systemctl enable qemu-guest-agent"
 fi
 
-# Setup livepatch
-log "Setting up Canonical Livepatch..."
-execute "snap install canonical-livepatch"
-execute "pro attach $LIVEPATCH_TOKEN" false
-execute "canonical-livepatch status --verbose" false
+# Setup livepatch if token is provided
+if [ -n "$LIVEPATCH_TOKEN" ]; then
+    log "Setting up Canonical Livepatch..."
+    execute "snap install canonical-livepatch"
+    execute "pro attach $LIVEPATCH_TOKEN" false
+    execute "canonical-livepatch status --verbose" false
+else
+    log "Skipping Canonical Livepatch (no token provided)"
+fi
 
 # Set nano as default editor
 log "Setting nano as default editor..."
@@ -274,21 +275,28 @@ APT::Periodic::AutocleanInterval \"7\";
 EOF"
 fi
 
-# Configure swap
-log "Configuring swap (${SWAP_SIZE}GB)..."
+# Configure swap if size > 0
+if [ "$SWAP_SIZE" -gt 0 ]; then
+    log "Configuring swap (${SWAP_SIZE}GB)..."
 
-# Remove any existing swap files
-if [ -f /swapfile ]; then
-    execute "swapoff /swapfile"
-    execute "rm /swapfile"
-fi
-if [ -f /swap.img ]; then
-    execute "swapoff /swap.img"
-    execute "rm /swap.img"
-fi
+    # Remove any existing swap files
+    if [ -f /swapfile ]; then
+        execute "swapoff /swapfile"
+        execute "rm /swapfile"
+    fi
+    if [ -f /swap.img ]; then
+        execute "swapoff /swap.img"
+        execute "rm /swap.img"
+    fi
 
-# Create and configure new swap
-execute "fallocate -l ${SWAP_SIZE}G /swap.img"
+    # Create and configure new swap
+    execute "fallocate -l ${SWAP_SIZE}G /swap.img"
+    execute "chmod 600 /swap.img"
+    execute "mkswap /swap.img"
+    execute "swapon /swap.img"
+else
+    log "Skipping swap configuration (size set to 0)"
+fi
 execute "chmod 600 /swap.img"
 execute "mkswap /swap.img"
 execute "swapon /swap.img"
