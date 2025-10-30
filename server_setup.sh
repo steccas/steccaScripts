@@ -146,9 +146,9 @@ fi
 
 if [ "$NON_INTERACTIVE" = false ]; then
     echo
-    read -p "Do you want to proceed with the installation? [y/N] " -n 1 -r
+    read -p "Do you want to proceed with the installation? [Y/n] " -n 1 -r
     echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
         log "Installation cancelled by user"
         exit 1
     fi
@@ -387,8 +387,8 @@ setup_user() {
     log "  - Password: $([ -n "$password" ] && echo "<set>" || echo "<not set>")"
     
     if [ "$NON_INTERACTIVE" = false ]; then
-        read -p "Do you want to proceed with this user setup? (y/N) " confirm
-        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        read -p "Do you want to proceed with this user setup? (Y/n) " confirm
+        if [[ "$confirm" =~ ^[Nn]$ ]]; then
             log "User setup skipped by user request"
             return 0
         fi
