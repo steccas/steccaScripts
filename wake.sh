@@ -2,14 +2,15 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [-h] [-t timeout] [-i interval] [-v] MAC_ADDRESS IP_ADDRESS INTERFACE"
+    echo "Usage: $0 [-h] [-t timeout] [-i interval] [-v] [-b broadcast] MAC_ADDRESS IP_ADDRESS INTERFACE"
     echo "Options:"
-    echo "  -h          Show this help message"
-    echo "  -t timeout  Maximum time to wait in seconds (default: 300)"
-    echo "  -i interval Interval between attempts in seconds (default: 4)"
-    echo "  -v          Verbose output"
+    echo "  -h            Show this help message"
+    echo "  -t timeout    Maximum time to wait in seconds (default: 300)"
+    echo "  -i interval   Interval between attempts in seconds (default: 4)"
+    echo "  -v            Verbose output"
+    echo "  -b broadcast  Subnet broadcast address for cross-VLAN WOL (e.g. 192.168.1.255)"
     echo
-    echo "Example: $0 FF:FF:FF:FF:FF:FF 192.168.1.6 eth0"
+    echo "Example: $0 -b 192.168.1.255 FF:FF:FF:FF:FF:FF 192.168.1.6 eth0"
     exit 1
 }
 
@@ -40,9 +41,10 @@ log() {
 TIMEOUT=300
 INTERVAL=4
 VERBOSE=false
+BROADCAST=""
 
 # Parse arguments
-while getopts "ht:i:v" opt; do
+while getopts "ht:i:v:b:" opt; do
     case $opt in
         h)
             usage
@@ -63,6 +65,9 @@ while getopts "ht:i:v" opt; do
             ;;
         v)
             VERBOSE=true
+            ;;
+        b)
+            BROADCAST=$OPTARG
             ;;
         \?)
             usage
@@ -115,6 +120,7 @@ log INFO "Starting wake-on-LAN for device:"
 log INFO "- MAC Address: $MAC_ADDRESS"
 log INFO "- IP Address: $IP_ADDRESS"
 log INFO "- Interface: $INTERFACE"
+log INFO "- Broadcast: ${BROADCAST:-not set, using IP}"
 log INFO "- Timeout: $TIMEOUT seconds"
 log INFO "- Interval: $INTERVAL seconds"
 
@@ -136,10 +142,18 @@ while true; do
         exit 0
     fi
     
-    # Send wake-on-LAN packets using both tools for better compatibility
+    # Send wake-on-LAN packets using multiple methods for best coverage
     log INFO "Sending wake-on-LAN packets (attempt $((++ATTEMPTS)))"
-    etherwake -i "$INTERFACE" "$MAC_ADDRESS" 2>/dev/null
+    # 1. Plain broadcast 255.255.255.255 (no ARP, no router, works via L2 VLAN trunk)
     wakeonlan "$MAC_ADDRESS" 2>/dev/null
+    # 2. L2 raw broadcast on local interface (no ARP, no router)
+    etherwake -i "$INTERFACE" "$MAC_ADDRESS" 2>/dev/null
+    # 3. Unicast to IP (requires ARP on router, works when server was recently on)
+    wakeonlan -i "$IP_ADDRESS" "$MAC_ADDRESS" 2>/dev/null
+    # 4. Directed broadcast if provided (requires router support, last resort)
+    if [ -n "$BROADCAST" ]; then
+        wakeonlan -i "$BROADCAST" "$MAC_ADDRESS" 2>/dev/null
+    fi
     
     # Show remaining time if verbose
     if [ "$VERBOSE" = true ]; then
