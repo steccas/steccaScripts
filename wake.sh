@@ -44,7 +44,7 @@ VERBOSE=false
 BROADCAST=""
 
 # Parse arguments
-while getopts "ht:i:v:b:" opt; do
+while getopts "ht:i:vb:" opt; do
     case $opt in
         h)
             usage
