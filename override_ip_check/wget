@@ -1,0 +1,9 @@
+# /usr/local/bin/wget
+#!/bin/bash
+IP="85.214.x.x"
+case "$*" in
+    *ifconfig*|*ipinfo*|*ip-api*|*myip*)
+        echo "$IP" ;;
+    *)
+        /usr/bin/wget "$@" ;;
+esac

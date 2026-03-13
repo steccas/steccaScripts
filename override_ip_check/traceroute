@@ -1,0 +1,9 @@
+# /usr/local/bin/traceroute
+#!/bin/bash
+FAKE_IP="85.214.x.x"
+REAL_IP=$(/usr/bin/curl -s ifconfig.me 2>/dev/null)
+if [ -z "$REAL_IP" ]; then
+    /usr/bin/traceroute "$@"
+else
+    /usr/bin/traceroute "$@" | sed "s/\b$REAL_IP\b/$FAKE_IP/g"
+fi
