@@ -1,0 +1,102 @@
+# =============================================================================
+# kopia_hetzner.conf - configuration for setup.sh / backup.sh
+# =============================================================================
+# Copy this file to a real config (e.g. /etc/kopia_hetzner.conf or alongside
+# the scripts) and edit the values for your environment.
+#
+# This file is sourced by bash, so values do NOT need to be quoted unless
+# they contain whitespace.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Instance identity
+# -----------------------------------------------------------------------------
+# Used to derive default paths so multiple Storage Boxes / projects can coexist
+# on the same host without clashing (SSH key, known_hosts, kopia config dir,
+# systemd timer name, etc.).
+INSTANCE_NAME="myproject"
+
+# -----------------------------------------------------------------------------
+# Hetzner Storage Box endpoint
+# -----------------------------------------------------------------------------
+SB_USER="uXXXXXX-subY"
+SB_HOST="uXXXXXX-subY.your-storagebox.de"
+SB_PORT="23"
+SB_PATH="./kopia"   # path on the Storage Box, relative to the (sub)account home
+
+# -----------------------------------------------------------------------------
+# Hetzner Storage Box official host key fingerprints (verified by setup.sh
+# against ssh-keyscan output to prevent MitM at first contact).
+# Source: https://docs.hetzner.com/storage/storage-box/general/
+# -----------------------------------------------------------------------------
+HETZNER_FP_ED25519="SHA256:XqONwb1S0zuj5A1CDxpOSuD2hnAArV1A3wKY7Z3sdgM"
+HETZNER_FP_RSA="SHA256:EMlfI8GsRIfpVkoW1H2u0zYVpFGKkIMKHFZIRkf2ioI"
+
+# -----------------------------------------------------------------------------
+# Sources to snapshot (bash array)
+# -----------------------------------------------------------------------------
+SOURCES=(
+    "/home"
+    "/etc"
+    "/var/lib/myapp"
+)
+
+# -----------------------------------------------------------------------------
+# Optional: pre-snapshot MySQL/MariaDB dump
+# -----------------------------------------------------------------------------
+# Leave MYSQL_CONTAINER empty to disable.
+# When enabled, the script reads MYSQL_USER/MYSQL_PASSWORD/MYSQL_DATABASE
+# from the running container's environment (no .env parsing needed).
+# The dump is written to MYSQL_DUMP_DIR (which should be inside one of the
+# SOURCES so it ends up in the Kopia snapshot).
+MYSQL_CONTAINER=""                                  # e.g. "mariadb_ec"
+MYSQL_DUMP_DIR=""                                   # e.g. "/var/lib/myapp/mariadb-dumps"
+MYSQL_DUMP_KEEP_LOCAL=7                             # how many local dumps to keep
+
+# -----------------------------------------------------------------------------
+# Local state file paths (defaults are derived from INSTANCE_NAME if unset)
+# -----------------------------------------------------------------------------
+# SSH_KEY="/root/.ssh/kopia_${INSTANCE_NAME}_ed25519"
+# KNOWN_HOSTS="/root/.ssh/kopia_${INSTANCE_NAME}_known_hosts"
+# KOPIA_CONFIG_DIR="/root/.config/kopia/${INSTANCE_NAME}"
+# KOPIA_CONFIG_FILE="${KOPIA_CONFIG_DIR}/repository.config"
+# KOPIA_PASSWORD_FILE="${KOPIA_CONFIG_DIR}/password"
+# BACKUP_LOG="/var/log/kopia-${INSTANCE_NAME}.log"
+
+# -----------------------------------------------------------------------------
+# Kopia tuning
+# -----------------------------------------------------------------------------
+# Hetzner Storage Box allows max 10 simultaneous SFTP connections per
+# (sub)account. Stay well under that to avoid checksum/connection errors.
+KOPIA_PARALLEL=4
+
+# -----------------------------------------------------------------------------
+# Retention policy (applied as global policy at setup time, idempotent)
+# -----------------------------------------------------------------------------
+KOPIA_KEEP_LATEST=10
+KOPIA_KEEP_HOURLY=24
+KOPIA_KEEP_DAILY=14
+KOPIA_KEEP_WEEKLY=8
+KOPIA_KEEP_MONTHLY=12
+KOPIA_KEEP_ANNUAL=3
+KOPIA_COMPRESSION="zstd"
+
+# Extra ignore patterns for the global Kopia policy (bash array).
+KOPIA_IGNORE=(
+    '/tmp/*.sock'
+    '/tmp/*.lock'
+    '/tmp/.X*-lock'
+    '*.swp'
+    '.cache'
+    'node_modules'
+    '__pycache__'
+    'lost+found'
+)
+
+# -----------------------------------------------------------------------------
+# systemd timer (set INSTALL_TIMER=1 to enable, or pass --install-timer)
+# -----------------------------------------------------------------------------
+INSTALL_TIMER=0
+TIMER_ONCALENDAR="*-*-* 03:30:00"   # daily at 03:30
+TIMER_RANDOMIZED_DELAY="30min"
+# TIMER_NAME="kopia-${INSTANCE_NAME}"   # systemd unit base name (.service / .timer)
