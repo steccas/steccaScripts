@@ -6,6 +6,9 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Fail fast on errors and undefined variables for safer automation.
+set -euo pipefail
+
 # Function to display usage
 usage() {
     echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] [-k livepatch_token] [-f]"
@@ -207,7 +210,8 @@ PACKAGES=(
     build-essential
     gnupg
     lsb-release
-    ntp
+    locales
+    chrony
     nano
     micro
     wget

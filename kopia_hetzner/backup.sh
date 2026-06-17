@@ -149,7 +149,7 @@ snapshot_sources() {
 # ============================================================================
 post_actions() {
     log "Latest snapshots:"
-    kopia_cmd snapshot list --max-results-per-source=1 | sed 's/^/    /'
+    kopia_cmd snapshot list --max-results=1 | sed 's/^/    /'
 
     log "Maintenance (quick)..."
     kopia_cmd maintenance run --safety=full || warn "Maintenance not run (only the repo owner can run it)."
