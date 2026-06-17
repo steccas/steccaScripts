@@ -13,8 +13,8 @@ set -euo pipefail
 usage() {
     echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] [-k livepatch_token] [-f]"
     echo "Options:"
-    echo "  -h           Show this help message"
-    echo "  -s size      Swap file size in GB (default: 8)"
+    echo "  -h          Show this help message"
+    echo "  -s size     Swap file size in GB (default: 8)"
     echo "  -d          Skip Docker installation"
     echo "  -u          Skip unattended-upgrades setup"
     echo "  -n          Non-interactive mode (no prompts)"
@@ -205,6 +205,7 @@ PACKAGES=(
     gnupg-agent
     software-properties-common
     net-tools
+    traceroute
     iperf
     git
     build-essential
