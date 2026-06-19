@@ -610,7 +610,7 @@ if [ "$SKIP_DOCKER" = false ]; then
     log "Configuring IP forwarding and network optimizations..."
     
     # Create network optimization configuration file
-    execute "cat > /etc/sysctl.d/99-network-tune.conf << 'EOF'
+    execute "cat > /etc/sysctl.d/80-network-tune.conf << 'EOF'
 # Enable IP forwarding for Docker
 net.ipv4.ip_forward=1
 
