@@ -119,7 +119,8 @@ execute() {
 }
 
 log "Starting server setup..."
-apt update && apt install yq
+execute "apt update"
+execute "DEBIAN_FRONTEND=noninteractive apt install -y yq"
 log "Configuration:"
 log "- Swap Size: ${SWAP_SIZE}GB"
 log "- Docker: $([ "$SKIP_DOCKER" = true ] && echo "Skip" || echo "Install")"
@@ -132,8 +133,8 @@ log "- UFW Firewall: $([ "$SKIP_UFW" = true ] && echo "Skip" || echo "Configure"
 
 if [ -n "$USERS_CONFIG" ]; then
     log "Users to be created:"
-    user_count=$(yq '.users | length' "$USERS_CONFIG")
-    if [ $? -ne 0 ] || [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
+    user_count=$(yq '.users | length' "$USERS_CONFIG") || user_count=""
+    if [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
         handle_error "Failed to get user count from configuration file"
     fi
     for i in $(seq 0 $((user_count - 1))); do
@@ -263,7 +264,7 @@ if [ "$SKIP_UPGRADES" = false ]; then
         
         log "Opening unattended-upgrades configuration file..."
         log "Recommended changes:"
-        log "1. Uncomment '${distro_id}:${distro_codename}-updates' to enable non-security updates"
+        log "1. Uncomment '\${distro_id}:\${distro_codename}-updates' to enable non-security updates"
         log "2. Set 'Unattended-Upgrade::AutoFixInterruptedDpkg' to 'true' to recover from interrupted updates"
         log "3. Set 'Unattended-Upgrade::MinimalSteps' to 'true' for safer upgrades"
         log "4. Enable automatic cleanup:"
@@ -432,8 +433,8 @@ setup_user() {
     
     # Handle groups (for both new and existing users)
     local groups
-    groups=$(yq ".users[$user_index].groups[]" "$USERS_CONFIG" 2>/dev/null | tr -d '"')
-    if [ $? -eq 0 ] && [ -n "$groups" ] && [ "$groups" != "null" ]; then
+    groups=$(yq ".users[$user_index].groups[]" "$USERS_CONFIG" 2>/dev/null | tr -d '"') || groups=""
+    if [ -n "$groups" ] && [ "$groups" != "null" ]; then
         for group in $groups; do
             usermod -aG "$group" "$username"
         done
@@ -482,8 +483,8 @@ setup_user() {
         
         # Check for GitHub username
         local github_user
-        github_user=$(yq ".users[$user_index].ssh.github_username // \"\"" "$USERS_CONFIG" 2>/dev/null | tr -d '"')
-        if [ $? -eq 0 ] && [ -n "$github_user" ] && [ "$github_user" != "null" ]; then
+        github_user=$(yq ".users[$user_index].ssh.github_username // \"\"" "$USERS_CONFIG" 2>/dev/null | tr -d '"') || github_user=""
+        if [ -n "$github_user" ] && [ "$github_user" != "null" ]; then
             log "Importing GitHub SSH keys for $github_user"
             if ! execute "su - $username -c \"ssh-import-id gh:$github_user\"" false; then
                 log "Warning: Failed to import GitHub SSH keys for $github_user"
@@ -491,8 +492,8 @@ setup_user() {
         else
             # Check for direct authorized_keys
             local keys
-            keys=$(yq ".users[$user_index].ssh.authorized_keys[]" "$USERS_CONFIG" 2>/dev/null | tr -d '"')
-            if [ $? -eq 0 ] && [ -n "$keys" ] && [ "$keys" != "null" ]; then
+            keys=$(yq ".users[$user_index].ssh.authorized_keys[]" "$USERS_CONFIG" 2>/dev/null | tr -d '"') || keys=""
+            if [ -n "$keys" ] && [ "$keys" != "null" ]; then
                 echo "$keys" > "/home/$username/.ssh/authorized_keys"
                 chmod 600 "/home/$username/.ssh/authorized_keys"
                 chown -R "$username:$username" "/home/$username/.ssh"
@@ -513,7 +514,7 @@ if [ -n "$USERS_CONFIG" ]; then
     # Check if yq is available
     if ! command -v yq &> /dev/null; then
         log "Installing yq..."
-        if ! execute "apt install yq" false; then
+        if ! execute "DEBIAN_FRONTEND=noninteractive apt install -y yq" false; then
             log "Warning: Failed to install yq using apt. Script may fail if yq is required."
             log "Debug: Continuing after yq installation failure"
         fi
@@ -525,8 +526,8 @@ if [ -n "$USERS_CONFIG" ]; then
     fi
     
     # Get number of users
-    user_count=$(yq '.users | length' "$USERS_CONFIG")
-    if [ $? -ne 0 ] || [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
+    user_count=$(yq '.users | length' "$USERS_CONFIG") || user_count=""
+    if [ -z "$user_count" ] || [ "$user_count" = "null" ]; then
         handle_error "Failed to get user count from configuration file"
     fi
     
