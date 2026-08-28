@@ -568,9 +568,11 @@ if [ "$SKIP_DOCKER" = false ]; then
     # Configure system for Docker networking
     log "Configuring system for Docker networking..."
     
-    # Enable IP forwarding
-    execute "echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-docker.conf"
-    execute "sysctl -p /etc/sysctl.d/99-docker.conf"
+    # Enable IP forwarding immediately; the persistent setting lives in
+    # 80-network-tune.conf, written later in this script.
+    execute "sysctl -w net.ipv4.ip_forward=1"
+    # Drop the legacy file from older runs so it cannot override 80-network-tune.conf
+    execute "rm -f /etc/sysctl.d/99-docker.conf" false
     
     # Configure iptables for Docker
     execute "mkdir -p /etc/docker"
@@ -653,7 +655,7 @@ net.ipv4.tcp_max_syn_backlog=8192
 EOF"
     
     # Apply the changes
-    execute "sysctl -p /etc/sysctl.d/99-network-tune.conf"
+    execute "sysctl -p /etc/sysctl.d/80-network-tune.conf"
 fi
 
 execute ./zshsetup.sh -f ./zsh_plugin_lists/proxmox false
