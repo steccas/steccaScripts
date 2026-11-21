@@ -574,7 +574,8 @@ if [ "$SKIP_DOCKER" = false ]; then
     # docker-ce: installing over it would remove the running engine and stop
     # every container. Keep it and only apply the configuration below.
     DOCKER_DISTRO_PKG=false
-    if dpkg -s docker.io >/dev/null 2>&1; then
+    # dpkg -s also succeeds for removed-but-not-purged packages ("rc"), so check the real state
+    if [ "$(dpkg-query -W -f='${Status}' docker.io 2>/dev/null)" = "install ok installed" ]; then
         DOCKER_DISTRO_PKG=true
         log "docker.io (Ubuntu package) already installed, keeping it and skipping docker-ce installation"
     fi
