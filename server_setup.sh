@@ -9,6 +9,8 @@ fi
 # Fail fast on errors and undefined variables for safer automation.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Function to display usage
 usage() {
     echo "Usage: $0 [-h] [-s swap_size] [-d] [-u] [-n] [-t timezone] [-l locale] [-c users_config] [-q] [-k livepatch_token] [-f]"
@@ -313,13 +315,10 @@ if [ "$SWAP_SIZE" -gt 0 ]; then
     # Configure swap behavior
     execute "sysctl vm.swappiness=10"
     execute "sysctl vm.vfs_cache_pressure=50"
-    # Make sysctl settings permanent
-    if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
-        execute "echo 'vm.swappiness=10' >> /etc/sysctl.conf"
-    fi
-    if ! grep -q "vm.vfs_cache_pressure" /etc/sysctl.conf; then
-        execute "echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf"
-    fi
+    # Make sysctl settings permanent. Use a drop-in: recent Ubuntu releases no
+    # longer ship /etc/sysctl.conf (nor the 99-sysctl.conf link to it), so
+    # values appended there are not applied at boot.
+    execute "printf 'vm.swappiness=10\nvm.vfs_cache_pressure=50\n' > /etc/sysctl.d/60-swap.conf"
 else
     log "Skipping swap configuration (size set to 0)"
 fi
@@ -340,27 +339,37 @@ fi
 
 # Secure SSH configuration
 log "Hardening SSH configuration..."
-# Backup original config
-execute "cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak"
+# sshd uses the first value it reads for each option, and sshd_config includes
+# /etc/ssh/sshd_config.d/*.conf at the top. Editing sshd_config is therefore
+# overridden by drop-ins such as 50-cloud-init.conf ("PasswordAuthentication yes").
+# Write the hardening as a drop-in that sorts first so it always wins.
+SSH_HARDENING=/etc/ssh/sshd_config.d/00-hardening.conf
+execute "mkdir -p /etc/ssh/sshd_config.d"
+if ! grep -qE '^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config; then
+    execute "cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak"
+    execute "sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config"
+fi
+cat > "$SSH_HARDENING" << 'EOF'
+# Managed by server_setup.sh
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+MaxAuthTries 3
+PermitEmptyPasswords no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+EOF
+chmod 644 "$SSH_HARDENING"
 
-# Configure SSH security settings
-execute "sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config"
-execute "sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config"
-execute "sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config"
-execute "sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config"
-
-# Additional security measures
-execute "sed -i 's/#PermitEmptyPasswords no/PermitEmptyPasswords no/' /etc/ssh/sshd_config"
-execute "sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 300/' /etc/ssh/sshd_config"
-execute "sed -i 's/#ClientAliveCountMax 3/ClientAliveCountMax 2/' /etc/ssh/sshd_config"
-
-# Validate sshd configuration
-# log "Validating SSH configuration..."
-# if ! execute "sshd -t"; then
-#     log "Error: SSH configuration is invalid, restoring backup..."
-#     execute "cp /etc/ssh/sshd_config.bak /etc/ssh/sshd_config"
-#     handle_error "SSH configuration validation failed"
-# fi
+# Validate sshd configuration before restarting, so a bad config cannot lock us out
+log "Validating SSH configuration..."
+if ! sshd -t; then
+    log "Error: SSH configuration is invalid, removing $SSH_HARDENING..."
+    rm -f "$SSH_HARDENING"
+    [ -f /etc/ssh/sshd_config.bak ] && cp /etc/ssh/sshd_config.bak /etc/ssh/sshd_config
+    handle_error "SSH configuration validation failed"
+fi
 
 # Restart SSH service
 log "Restarting SSH service..."
@@ -462,16 +471,23 @@ setup_user() {
     # Setup zsh configuration (for both new and existing users)
     log "Setting up zsh for user $username..."
     
-    # Clone the repo in user's home directory
-    if ! execute "su - $username -c 'git clone https://github.com/steccas/steccaScripts.git'" false; then
-        log "Warning: Failed to clone steccaScripts repo for user $username"
-        return
+    # Clone (or update, on re-runs) the repo in user's home directory.
+    # A failure here only skips the zsh setup: SSH keys below are still configured.
+    local repo_ok=true
+    if su - "$username" -c 'test -d ./steccaScripts/.git'; then
+        execute "su - $username -c 'git -C ./steccaScripts pull --ff-only'" false || \
+            log "Warning: Failed to update steccaScripts repo for user $username, using existing copy"
+    elif ! execute "su - $username -c 'git clone https://github.com/steccas/steccaScripts.git'" false; then
+        log "Warning: Failed to clone steccaScripts repo for user $username, skipping zsh setup"
+        repo_ok=false
     fi
-    
+
     # Run zsh setup from the cloned repo
-    if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'"; then
-        log "Warning: zsh setup failed for user $username, continuing with default shell"
-        execute "chsh -s /bin/bash $username" false # Fallback to bash
+    if [ "$repo_ok" = true ]; then
+        if ! execute "su - $username -c './steccaScripts/zshsetup.sh -f ./steccaScripts/zsh_plugin_lists/proxmox'" false; then
+            log "Warning: zsh setup failed for user $username, continuing with default shell"
+            execute "chsh -s /bin/bash $username" false # Fallback to bash
+        fi
     fi
 
 
@@ -494,8 +510,15 @@ setup_user() {
             local keys
             keys=$(yq ".users[$user_index].ssh.authorized_keys[]" "$USERS_CONFIG" 2>/dev/null | tr -d '"') || keys=""
             if [ -n "$keys" ] && [ "$keys" != "null" ]; then
-                echo "$keys" > "/home/$username/.ssh/authorized_keys"
-                chmod 600 "/home/$username/.ssh/authorized_keys"
+                # Append missing keys instead of overwriting, so keys already
+                # present on an existing server are kept.
+                local auth_file="/home/$username/.ssh/authorized_keys"
+                touch "$auth_file"
+                while IFS= read -r key; do
+                    [ -z "$key" ] && continue
+                    grep -qxF "$key" "$auth_file" || echo "$key" >> "$auth_file"
+                done <<< "$keys"
+                chmod 600 "$auth_file"
                 chown -R "$username:$username" "/home/$username/.ssh"
             fi
         fi
@@ -547,23 +570,34 @@ fi
 if [ "$SKIP_DOCKER" = false ]; then
     log "Installing Docker..."
     
-    # Ensure prerequisites are installed
-    execute "apt install -y ca-certificates curl"
-    
-    # Setup Docker repository
-    execute "install -m 0755 -d /etc/apt/keyrings"
-    execute "curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc"
-    execute "chmod a+r /etc/apt/keyrings/docker.asc"
-    
-    # Add Docker repository
-    echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null
-    
-    # Update package list and install Docker
-    execute "apt update"
-    execute "apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin"
+    # An existing Docker from Ubuntu's own packages (docker.io) conflicts with
+    # docker-ce: installing over it would remove the running engine and stop
+    # every container. Keep it and only apply the configuration below.
+    DOCKER_DISTRO_PKG=false
+    if dpkg -s docker.io >/dev/null 2>&1; then
+        DOCKER_DISTRO_PKG=true
+        log "docker.io (Ubuntu package) already installed, keeping it and skipping docker-ce installation"
+    fi
+
+    if [ "$DOCKER_DISTRO_PKG" = false ]; then
+        # Ensure prerequisites are installed
+        execute "apt install -y ca-certificates curl"
+        
+        # Setup Docker repository
+        execute "install -m 0755 -d /etc/apt/keyrings"
+        execute "curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc"
+        execute "chmod a+r /etc/apt/keyrings/docker.asc"
+        
+        # Add Docker repository
+        echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+        $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+        tee /etc/apt/sources.list.d/docker.list > /dev/null
+        
+        # Update package list and install Docker
+        execute "apt update"
+        execute "apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin"
+    fi
     
     # Configure system for Docker networking
     log "Configuring system for Docker networking..."
@@ -576,13 +610,18 @@ if [ "$SKIP_DOCKER" = false ]; then
     
     # Configure iptables for Docker
     execute "mkdir -p /etc/docker"
-    cat > /etc/docker/daemon.json << 'EOF'
+    # Do not overwrite a daemon.json written by hand on an existing server
+    if [ -s /etc/docker/daemon.json ]; then
+        log "/etc/docker/daemon.json already exists, leaving it unchanged"
+    else
+        cat > /etc/docker/daemon.json << 'EOF'
 {
   "iptables": true,
   "live-restore": true,
   "userland-proxy": false
 }
 EOF
+    fi
     
     # Allow forwarded ports in UFW for Docker, if UFW is enabled
     if [ "$SKIP_UFW" = false ]; then
@@ -658,7 +697,8 @@ EOF"
     execute "sysctl -p /etc/sysctl.d/80-network-tune.conf"
 fi
 
-execute ./zshsetup.sh -f ./zsh_plugin_lists/proxmox false
+# zsh setup for root, using the files next to this script (works from any cwd)
+execute "\"$SCRIPT_DIR/zshsetup.sh\" -f \"$SCRIPT_DIR/zsh_plugin_lists/proxmox\"" false || true
 
 log "Server setup completed successfully!"
 log "Please review the following:"
